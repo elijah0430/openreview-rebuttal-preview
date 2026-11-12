@@ -35,6 +35,11 @@ const compiled=sass.compileString(note,{loadPaths:[path.resolve('upstream')],sty
 const css=`html{font-size:16px;scrollbar-gutter:stable}body{margin:0;padding:28px 30px;background:#fffdfa;color:#333;font-family:'Noto Sans','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:.875rem}h1,h2,h3,h4,h5,h6{font-family:inherit;line-height:1.1;font-weight:500;color:#2c3a4a}a{color:#3e6775}a:hover,a:focus{color:#3e6775}pre{font-size:.8125rem}#empty{color:#a2a5aa;font-family:Arial,sans-serif;font-size:12px;padding-top:5px}#empty[hidden]{display:none}mjx-container[display=true]{overflow-x:auto;overflow-y:hidden}table{border-collapse:collapse}#content:empty{display:none}@media(max-width:767px){html{font-size:14px}body{padding:24px}}\n${compiled}`;
 await fs.writeFile(`${out}/preview.css`,(await fs.readFile('upstream/fonts.css','utf8').catch(()=>''))+css);
 if(await fs.stat('upstream/fonts').catch(()=>null)) await fs.cp('upstream/fonts',`${out}/fonts`,{recursive:true});
+const previewScriptHash = createHash('sha256').update(await fs.readFile('preview.js')).digest('hex').slice(0, 12);
+const previewPage = (await fs.readFile('preview.html', 'utf8')).replace('"preview.js"', `"preview.js?v=${previewScriptHash}"`);
+await fs.writeFile(`${out}/preview.html`, previewPage);
+const previewPageHash = createHash('sha256').update(previewPage).digest('hex').slice(0, 12);
+await fs.writeFile(`${out}/index.html`, page.replace('"preview.html"', `"preview.html?v=${previewPageHash}"`));
 // Source is included to make the adapted OpenReview components inspectable and reproducible.
 const source={};
 for(const file of ['package.json','package-lock.json','build.mjs','serve.mjs','index.html','app.css','app.js','preview.html','preview.js','README.md','LICENSE.md']) source[file]=new Uint8Array(await fs.readFile(file));

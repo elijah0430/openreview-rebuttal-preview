@@ -7,8 +7,8 @@ async function render() {
   while (latest) {
     const job = latest; latest = null;
     try {
-      if (!window.marked || !window.DOMPurify) throw new Error('Markdown 렌더러를 불러오지 못했습니다. 페이지를 새로고침해 주세요.');
-      if (!window.MathJax?.startup?.promise) throw new Error('수식 렌더러를 불러오지 못했습니다. 페이지를 새로고침해 주세요.');
+      if (!window.marked || !window.DOMPurify) throw new Error('The Markdown renderer could not load. Please refresh the page.');
+      if (!window.MathJax?.startup?.promise) throw new Error('The math renderer could not load. Please refresh the page.');
       await MathJax.startup.promise;
       document.documentElement.style.fontSize = (job.rootFontSize === 14 ? 14 : 16) + 'px';
       MathJax.typesetClear([content]);
