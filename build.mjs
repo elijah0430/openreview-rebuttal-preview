@@ -1,11 +1,18 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import * as sass from 'sass';
 import { zipSync } from 'fflate';
 const out='docs';
 await fs.mkdir(`${out}/vendor`,{recursive:true});
 await fs.writeFile(`${out}/.nojekyll`, '');
 for(const file of ['index.html','app.css','app.js','preview.html','preview.js','LICENSE.md']) await fs.copyFile(file,`${out}/${file}`);
+let page = await fs.readFile('index.html', 'utf8');
+for (const asset of ['app.css', 'app.js']) {
+  const hash = createHash('sha256').update(await fs.readFile(asset)).digest('hex').slice(0, 12);
+  page = page.replace(`"${asset}"`, `"${asset}?v=${hash}"`);
+}
+await fs.writeFile(`${out}/index.html`, page);
 for(const [from,to] of [['marked/lib/marked.umd.js','marked.umd.js'],['dompurify/dist/purify.min.js','purify.min.js'],['bootstrap/dist/css/bootstrap.min.css','bootstrap.min.css']]) await fs.copyFile(`node_modules/${from}`,`${out}/vendor/${to}`);
 await fs.cp('node_modules/mathjax/es5',`${out}/vendor/mathjax`,{recursive:true});
 const setup=await fs.readFile('upstream/setup-marked.js','utf8');
