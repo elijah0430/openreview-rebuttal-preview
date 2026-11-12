@@ -39,8 +39,8 @@ Use **bold**, *italics*, and ${'`'}inline code${'`'} when helpful.
 let ready = false, revision = 0, renderTimer, saveTimer, scrollTimer, noticeTimer, lastSourceScroll = 0;
 let draft = null;
 try { draft = localStorage.getItem(storageKey); } catch { showNotice('브라우저 저장소를 사용할 수 없습니다. 원문 복사나 .md 저장으로 보관하세요.', true); }
-editor.value = draft ?? example;
-$('save-status').textContent = draft === null ? '예시 문서' : '저장된 초안';
+editor.value = draft ?? '';
+$('save-status').textContent = draft === null ? '자동 저장' : '저장된 초안';
 function showNotice(text, persistent = false) { clearTimeout(noticeTimer); $('notice').textContent = text; $('notice').hidden = false; if (!persistent) noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 5000); }
 function counts() { const raw = editor.value; const words = raw.trim() ? raw.trim().split(/\s+/u).length : 0; $('counts').textContent = `${words.toLocaleString()} words · ${raw.length.toLocaleString()} characters`; }
 function sendDraft() { if (!ready) return; revision++; $('render-status').textContent = '렌더링 중'; frame.contentWindow.postMessage({ type:'render', text:editor.value, revision, rootFontSize:window.innerWidth < 768 ? 14 : 16 }, location.origin); }

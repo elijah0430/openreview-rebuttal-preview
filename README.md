@@ -6,7 +6,7 @@ A browser-local OpenReview Markdown preview. Source text never leaves the browse
 
 Node 22+: `npm ci`, `npm run build`, `npm run dev`.
 
-Open http://127.0.0.1:4381. Output is the static `dist/` directory; all renderer dependencies are bundled locally. `source.zip` provides this source and upstream files.
+Open http://127.0.0.1:4381. Output is the static `docs/` directory, published by GitHub Pages from the main branch; all renderer dependencies are bundled locally. `source.zip` provides this source and upstream files.
 
 ## Fidelity
 
