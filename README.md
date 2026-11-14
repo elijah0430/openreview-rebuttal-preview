@@ -8,6 +8,12 @@ Node 22+: `npm ci`, `npm run build`, `npm run dev`.
 
 Open http://127.0.0.1:4381. Output is the static `docs/` directory, published by GitHub Pages from the main branch; all renderer dependencies are bundled locally. `source.zip` provides this source and upstream files.
 
+## Editing from the preview
+
+Double-click preview text to focus the corresponding Markdown position and scroll it into view. In Preview mode, this opens Split mode. Double-click a typeset formula to jump to its source. This works independently of Sync scroll. Navigation is ignored while the source has unrendered edits.
+
+To run browser checks, start `npm run dev`, install the Playwright Chromium browser (`npx playwright install chromium`), then run `npm test`. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to use an existing Chrome installation.
+
 ## Fidelity
 
 Reference: OpenReview web 1.15.42, commit `50c61b795383029ef03ce1f56d5b4e3759c4d599`, https://github.com/openreview/openreview-web

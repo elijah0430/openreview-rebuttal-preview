@@ -13,11 +13,12 @@ async function render() {
       document.documentElement.style.fontSize = (job.rootFontSize === 14 ? 14 : 16) + 'px';
       MathJax.typesetClear([content]);
       MathJax.texReset();
-      content.innerHTML = window.renderOpenReview(job.text);
+      window.renderWithSourcePositions(job.text, content, job.revision);
       content.querySelectorAll('a[href]').forEach((a) => { const href = a.getAttribute('href'); if (href && !/^[a-z][a-z\d+.-]*:/i.test(href) && !href.startsWith('#')) a.href = new URL(href, 'https://openreview.net/').href; });
       content.querySelectorAll('img[src^="/images/"]').forEach((img) => { img.src = new URL(img.getAttribute('src'), 'https://openreview.net').href; });
       document.getElementById('empty').hidden = !!job.text.trim();
       await MathJax.typesetPromise([content]);
+      window.rememberMathSourcePositions(content);
       tell({ type:'rendered', revision:job.revision, empty:!job.text.trim() });
     } catch (e) { tell({ type:'error', message:e.message }); }
   }

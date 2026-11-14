@@ -36,20 +36,41 @@ Use **bold**, *italics*, and ${'`'}inline code${'`'} when helpful.
 
 [OpenReview formatting guide](https://docs.openreview.net/how-to-guides/submissions-comments-reviews-and-decisions/how-to-add-formatting-to-reviews-or-comments)
 `;
-let ready = false, revision = 0, renderTimer, saveTimer, scrollTimer, noticeTimer, lastSourceScroll = 0;
+let ready = false, revision = 0, renderTimer, saveTimer, scrollTimer, noticeTimer, lastSourceScroll = 0, sourceJumpUntil = 0, renderedText = null;
 let draft = null;
 try { draft = localStorage.getItem(storageKey); } catch { showNotice('Browser storage is unavailable. Copy your text or save a .md file to keep your draft.', true); }
 editor.value = draft ?? '';
 $('save-status').textContent = draft === null ? 'Autosave' : 'Draft restored';
 function showNotice(text, persistent = false) { clearTimeout(noticeTimer); $('notice').textContent = text; $('notice').hidden = false; if (!persistent) noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 5000); }
 function counts() { const raw = editor.value; const words = raw.trim() ? raw.trim().split(/\s+/u).length : 0; $('counts').textContent = `${words.toLocaleString()} words · ${raw.length.toLocaleString()} characters`; }
-function sendDraft() { if (!ready) return; revision++; $('render-status').textContent = 'Rendering'; frame.contentWindow.postMessage({ type:'render', text:editor.value, revision, rootFontSize:window.innerWidth < 768 ? 14 : 16 }, location.origin); }
+function sendDraft() { if (!ready) return; renderedText = editor.value; revision++; $('render-status').textContent = 'Rendering'; frame.contentWindow.postMessage({ type:'render', text:editor.value, revision, rootFontSize:window.innerWidth < 768 ? 14 : 16 }, location.origin); }
 function save() { try { localStorage.setItem(storageKey, editor.value); $('save-status').textContent = 'Saved locally'; } catch { $('save-status').textContent = 'Save failed'; showNotice('Autosave failed. Copy your text or save a .md file to keep your draft.', true); } }
-function update() { counts(); clearTimeout(renderTimer); clearTimeout(saveTimer); $('save-status').textContent = 'Saving'; renderTimer = setTimeout(sendDraft, 140); saveTimer = setTimeout(save, 400); }
+function update() { $('render-status').textContent = 'Rendering'; counts(); clearTimeout(renderTimer); clearTimeout(saveTimer); $('save-status').textContent = 'Saving'; renderTimer = setTimeout(sendDraft, 140); saveTimer = setTimeout(save, 400); }
 editor.addEventListener('input', update);
 window.addEventListener('pagehide', () => { if ($('save-status').textContent !== 'Example document') save(); });
-window.addEventListener('message', (event) => { if (event.source !== frame.contentWindow) return; const m = event.data; if (!m || typeof m !== 'object') return; if (m.type === 'ready') { ready = true; sendDraft(); } if (m.type === 'rendered' && m.revision === revision) $('render-status').textContent = m.empty ? 'Waiting for input' : 'Up to date'; if (m.type === 'error') { $('render-status').textContent = 'Rendering error'; showNotice(m.message, true); } if (m.type === 'scroll' && $('sync').checked && performance.now() - lastSourceScroll > 140) { const max = editor.scrollHeight - editor.clientHeight; editor.scrollTop = m.ratio * Math.max(0, max); } });
-editor.addEventListener('scroll', () => { if (!$('sync').checked || !ready) return; lastSourceScroll = performance.now(); clearTimeout(scrollTimer); scrollTimer = setTimeout(() => { const max = editor.scrollHeight - editor.clientHeight; frame.contentWindow.postMessage({ type:'scroll', ratio:max > 0 ? editor.scrollTop / max : 0 }, '*'); }, 25); });
+window.addEventListener('message', (event) => { if (event.source !== frame.contentWindow) return; const m = event.data; if (!m || typeof m !== 'object') return; if (m.type === 'ready') { ready = true; sendDraft(); } if (m.type === 'rendered' && m.revision === revision) $('render-status').textContent = m.empty ? 'Waiting for input' : 'Up to date'; if (m.type === 'error') { $('render-status').textContent = 'Rendering error'; showNotice(m.message, true); } if (m.type === 'source-location') jumpToSource(m); if (m.type === 'scroll' && performance.now() > sourceJumpUntil && $('sync').checked && performance.now() - lastSourceScroll > 140) { const max = editor.scrollHeight - editor.clientHeight; editor.scrollTop = m.ratio * Math.max(0, max); } });
+editor.addEventListener('scroll', () => { if (performance.now() < sourceJumpUntil || !$('sync').checked || !ready) return; lastSourceScroll = performance.now(); clearTimeout(scrollTimer); scrollTimer = setTimeout(() => { const max = editor.scrollHeight - editor.clientHeight; frame.contentWindow.postMessage({ type:'scroll', ratio:max > 0 ? editor.scrollTop / max : 0 }, '*'); }, 25); });
+function jumpToSource(message) {
+  if (message.revision !== revision || editor.value !== renderedText || !Number.isInteger(message.offset) || message.offset < 0 || message.offset > editor.value.length) return;
+  // Keep the preview where it was while revealing and scrolling the source.
+  sourceJumpUntil = performance.now() + 600;
+  clearTimeout(scrollTimer);
+  if ($('workspace').dataset.mode === 'preview') document.querySelector('button[data-mode="split"]').click();
+  editor.focus({ preventScroll: true });
+  editor.setSelectionRange(message.offset, message.offset);
+  // Measure wrapping with the textarea's exact styles, including its padding.
+  const mirror = document.createElement('div');
+  const style = getComputedStyle(editor);
+  for (const property of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight', 'letterSpacing', 'wordSpacing', 'tabSize', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderWidth', 'boxSizing', 'overflowWrap', 'wordBreak']) mirror.style[property] = style[property];
+  Object.assign(mirror.style, { position: 'fixed', left: '-10000px', top: '0', width: editor.clientWidth + 'px', whiteSpace: 'pre-wrap', visibility: 'hidden' });
+  mirror.textContent = editor.value.slice(0, message.offset);
+  const caret = document.createElement('span');
+  caret.textContent = '\u200b';
+  mirror.append(caret);
+  document.body.append(mirror);
+  editor.scrollTop = Math.max(0, caret.offsetTop - editor.clientHeight / 2);
+  mirror.remove();
+}
 document.querySelectorAll('[data-mode]').forEach((button) => { if (button.tagName !== 'BUTTON') return; button.addEventListener('click', () => { $('workspace').dataset.mode = button.dataset.mode; document.querySelectorAll('button[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b === button))); }); });
 async function copyText() { try { await navigator.clipboard.writeText(editor.value); } catch { editor.focus(); editor.select(); if (!document.execCommand('copy')) { showNotice('Text selected. Press Ctrl+C or Command+C to copy.'); return; } } $('copy').textContent = 'Copied ✓'; setTimeout(() => { $('copy').textContent = 'Copy text ↗'; }, 1600); }
 $('copy').addEventListener('click', copyText);

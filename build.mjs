@@ -6,7 +6,7 @@ import { zipSync } from 'fflate';
 const out='docs';
 await fs.mkdir(`${out}/vendor`,{recursive:true});
 await fs.writeFile(`${out}/.nojekyll`, '');
-for(const file of ['index.html','app.css','app.js','preview.html','preview.js','LICENSE.md']) await fs.copyFile(file,`${out}/${file}`);
+for(const file of ['index.html','app.css','app.js','preview.html','preview.js','source-navigation.js','LICENSE.md']) await fs.copyFile(file,`${out}/${file}`);
 let page = await fs.readFile('index.html', 'utf8');
 for (const asset of ['app.css', 'app.js']) {
   const hash = createHash('sha256').update(await fs.readFile(asset)).digest('hex').slice(0, 12);
@@ -15,7 +15,7 @@ for (const asset of ['app.css', 'app.js']) {
 await fs.writeFile(`${out}/index.html`, page);
 for(const [from,to] of [['marked/lib/marked.umd.js','marked.umd.js'],['dompurify/dist/purify.min.js','purify.min.js'],['bootstrap/dist/css/bootstrap.min.css','bootstrap.min.css']]) await fs.copyFile(`node_modules/${from}`,`${out}/vendor/${to}`);
 await fs.cp('node_modules/mathjax/es5',`${out}/vendor/mathjax`,{recursive:true});
-const setup=await fs.readFile('upstream/setup-marked.js','utf8');
+const setup=(await fs.readFile('upstream/setup-marked.js','utf8')).replace(/\r\n?/g,'\n').trimEnd()+'\n';
 const tags=(await fs.readFile('upstream/allowed-tags.js','utf8')).replace('export const','const');
 const renderer=`/* OpenReview web 1.15.42, 50c61b795383029ef03ce1f56d5b4e3759c4d599. AGPL-3.0-or-later. */
 (function(){
@@ -36,14 +36,16 @@ const css=`html{font-size:16px;scrollbar-gutter:stable}body{margin:0;padding:28p
 await fs.writeFile(`${out}/preview.css`,(await fs.readFile('upstream/fonts.css','utf8').catch(()=>''))+css);
 if(await fs.stat('upstream/fonts').catch(()=>null)) await fs.cp('upstream/fonts',`${out}/fonts`,{recursive:true});
 const previewScriptHash = createHash('sha256').update(await fs.readFile('preview.js')).digest('hex').slice(0, 12);
-const previewPage = (await fs.readFile('preview.html', 'utf8')).replace('"preview.js"', `"preview.js?v=${previewScriptHash}"`);
+const navigationHash = createHash('sha256').update(await fs.readFile('source-navigation.js')).digest('hex').slice(0, 12);
+const previewPage = (await fs.readFile('preview.html', 'utf8')).replace('"preview.js"', `"preview.js?v=${previewScriptHash}"`).replace('"source-navigation.js"', `"source-navigation.js?v=${navigationHash}"`);
 await fs.writeFile(`${out}/preview.html`, previewPage);
 const previewPageHash = createHash('sha256').update(previewPage).digest('hex').slice(0, 12);
 await fs.writeFile(`${out}/index.html`, page.replace('"preview.html"', `"preview.html?v=${previewPageHash}"`));
 // Source is included to make the adapted OpenReview components inspectable and reproducible.
 const source={};
-for(const file of ['package.json','package-lock.json','build.mjs','serve.mjs','index.html','app.css','app.js','preview.html','preview.js','README.md','LICENSE.md']) source[file]=new Uint8Array(await fs.readFile(file));
+for(const file of ['package.json','package-lock.json','build.mjs','serve.mjs','index.html','app.css','app.js','preview.html','preview.js','source-navigation.js','README.md','LICENSE.md']) source[file]=new Uint8Array(await fs.readFile(file));
 async function collect(dir){for(const item of await fs.readdir(dir,{withFileTypes:true})){const file=`${dir}/${item.name}`;if(item.isDirectory())await collect(file);else source[file]=new Uint8Array(await fs.readFile(file));}}
 await collect('upstream');
+await collect('tests');
 await fs.writeFile(`${out}/source.zip`,zipSync(source));
 console.log('Built static app with bundled Markdown, MathJax, fonts and source.');
